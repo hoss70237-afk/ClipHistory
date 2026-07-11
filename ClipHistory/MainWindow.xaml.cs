@@ -261,11 +261,14 @@ namespace ClipHistory
             // 下部付近に到達したら追加読み込み
             if (e.VerticalOffset + e.ViewportHeight >= e.ExtentHeight - 10)
             {
-                LoadMore();
+                // 修正: ScrollViewer オブジェクトを取得して引き渡す
+                var scrollViewer = e.OriginalSource as ScrollViewer;
+                LoadMore(scrollViewer);
             }
         }
 
-        private void LoadMore()
+        // 修正: スクロール位置を固定したままアイテムを追加するように変更
+        private void LoadMore(ScrollViewer scrollViewer = null)
         {
             if (_isLoading || _items == null) return;
             _isLoading = true;
@@ -278,9 +281,23 @@ namespace ClipHistory
                 else
                     nextData = _repo.SearchHistory(SearchBox.Text, PageSize, currentCount, _showOnlyFavorites);
 
+                if (nextData.Count == 0) return;
+
+                // 追加前のスクロール位置を記憶
+                double currentOffset = scrollViewer?.VerticalOffset ?? 0;
+
                 foreach (var item in nextData)
                 {
                     _items.Add(item);
+                }
+
+                // アイテム追加によってスクロール位置が飛ばないように、元の位置に戻す
+                if (scrollViewer != null)
+                {
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        scrollViewer.ScrollToVerticalOffset(currentOffset);
+                    }), DispatcherPriority.Background);
                 }
             }
             finally
@@ -417,12 +434,10 @@ namespace ClipHistory
             int newIndex = _items.IndexOf(target);
             if (oldIndex < 0 || newIndex < 0) { _dragItem = null; return; }
 
-            // 修正：移動前の SortOrder をリストアップ（昇順を維持）
             var currentSortOrders = _items.Select(i => i.SortOrder).ToList();
 
             _items.Move(oldIndex, newIndex);
 
-            // 修正：移動後のアイテムに対して、元の SortOrder を順番に再割り当て
             var idToOrder = new Dictionary<long, int>();
             for (int i = 0; i < _items.Count; i++)
             {
