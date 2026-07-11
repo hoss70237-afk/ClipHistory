@@ -417,13 +417,24 @@ namespace ClipHistory
             int newIndex = _items.IndexOf(target);
             if (oldIndex < 0 || newIndex < 0) { _dragItem = null; return; }
 
+            // 修正：移動前の SortOrder をリストアップ（昇順を維持）
+            var currentSortOrders = _items.Select(i => i.SortOrder).ToList();
+
             _items.Move(oldIndex, newIndex);
 
-            var ids = _items.Select(i => i.Id).ToList();
-            if (_currentMode == ViewMode.History) _repo.ReorderHistory(ids);
-            else _repo.ReorderTemplates(ids);
+            // 修正：移動後のアイテムに対して、元の SortOrder を順番に再割り当て
+            var idToOrder = new Dictionary<long, int>();
+            for (int i = 0; i < _items.Count; i++)
+            {
+                _items[i].SortOrder = currentSortOrders[i];
+                idToOrder[_items[i].Id] = currentSortOrders[i];
+            }
 
-            for (int i = 0; i < _items.Count; i++) _items[i].SortOrder = i;
+            if (_currentMode == ViewMode.History) 
+                _repo.ReorderHistory(idToOrder);
+            else 
+                _repo.ReorderTemplates(idToOrder);
+
             _dragItem = null;
         }
 
