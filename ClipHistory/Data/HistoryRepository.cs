@@ -237,7 +237,8 @@ CREATE INDEX IF NOT EXISTS idx_tpl_set ON template_items(set_id);
             }
         }
 
-        public void ReorderHistory(IReadOnlyList<long> orderedIds) => ReorderTable("history", orderedIds);
+        // 修正：引数を IEnumerable<KeyValuePair<long, int>> に変更
+        public void ReorderHistory(IEnumerable<KeyValuePair<long, int>> idToOrder) => ReorderTable("history", idToOrder);
 
         public void DeleteHistory(long id)
         {
@@ -406,9 +407,11 @@ CREATE INDEX IF NOT EXISTS idx_tpl_set ON template_items(set_id);
             }
         }
 
-        public void ReorderTemplates(IReadOnlyList<long> orderedIds) => ReorderTable("template_items", orderedIds);
+        // 修正：引数を IEnumerable<KeyValuePair<long, int>> に変更
+        public void ReorderTemplates(IEnumerable<KeyValuePair<long, int>> idToOrder) => ReorderTable("template_items", idToOrder);
 
-        private void ReorderTable(string table, IReadOnlyList<long> orderedIds)
+        // 修正：Dictionary (Key=Id, Value=SortOrder) を受け取って更新するように変更
+        private void ReorderTable(string table, IEnumerable<KeyValuePair<long, int>> idToOrder)
         {
             lock (_lock)
             {
@@ -417,10 +420,11 @@ CREATE INDEX IF NOT EXISTS idx_tpl_set ON template_items(set_id);
                 {
                     var pO = cmd.Parameters.Add("@o", SqliteType.Integer);
                     var pId = cmd.Parameters.Add("@id", SqliteType.Integer);
-                    for (int i = 0; i < orderedIds.Count; i++)
+                    
+                    foreach (var kvp in idToOrder)
                     {
-                        pO.Value = i;
-                        pId.Value = orderedIds[i];
+                        pO.Value = kvp.Value;
+                        pId.Value = kvp.Key;
                         cmd.ExecuteNonQuery();
                     }
                     tx.Commit();
